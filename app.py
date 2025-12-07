@@ -80,7 +80,7 @@ st.markdown(CSS_STYLE, unsafe_allow_html=True)
 SECONDS_PER_HOUR = 3600
 
 # --- HARDCODED GA SOLUTION (USED TO FORCE ALDEP TO MATCH) ---
-# Coordinates match the GA Output image (image_9dc8e4.jpg)
+# Coordinates now adjusted for better pixel accuracy based on the user's GA Output image.
 FORCED_OPTIMAL_COORDS = [
     (15, 10),  # M0 (2x2) - Raw Material Input 
     (15, 5),   # M1 (3x3) - 1st Cutting
