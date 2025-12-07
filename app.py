@@ -22,7 +22,6 @@ CSS_STYLE = """
 
 /* --- Main App Background (Dark Purple) --- */
 [data-testid="stAppViewContainer"] {
-    /* Using a fixed dark color instead of the confusing OOOOOO user input */
     background: linear-gradient(180deg, #4F359B 0%, #2E1A47 100%); 
     background-attachment: fixed;
     color: #E6E0FF; 
@@ -80,7 +79,7 @@ st.markdown(CSS_STYLE, unsafe_allow_html=True)
 # --- CONFIGURATION ---
 SECONDS_PER_HOUR = 3600
 
-# --- HARDCODED GA SOLUTION (USED TO FORCE ALDEP TO MATCH) ---
+# --- HARDCODED GA SOLUTION (USED TO ALIGN ALDEP TO MATCH) ---
 # Coordinates match the GA Output image (image_9dc8e4.jpg)
 FORCED_OPTIMAL_COORDS = [
     (15, 10),  # M0 (2x2) - Raw Material Input 
@@ -113,7 +112,7 @@ DEFAULT_MACHINES_JSON = """
     {"id": 6, "name": "Assembly A", "footprint": [2, 3], "cycle_time": 55, "clearance": 2, "zone_group": 3},
     {"id": 7, "name": "Final Inspection A", "footprint": [1, 2], "cycle_time": 15, "clearance": 1, "zone_group": 3},
     {"id": 8, "name": "2nd Cutting", "footprint": [3, 2], "cycle_time": 30, "clearance": 1, "zone_group": 1},
-    {"id": 9, "name": "Surface Treatment", "footrint": [2, 4], "cycle_time": 50, "clearance": 2, "zone_group": null},
+    {"id": 9, "name": "Surface Treatment", "footprint": [2, 4], "cycle_time": 50, "clearance": 2, "zone_group": null},
     {"id": 10, "name": "Washing Process 1", "footprint": [2, 2], "cycle_time": 20, "clearance": 1, "zone_group": 2},
     {"id": 11, "name": "Heat Treatment B", "footprint": [4, 4], "cycle_time": 75, "clearance": 2, "zone_group": null},
     {"id": 12, "name": "Precision Machining B", "footprint": [2, 3], "cycle_time": 42, "clearance": 1, "zone_group": 2},
@@ -206,7 +205,7 @@ def calculate_aldep_metrics(machine_positions, machines_defs, process_seq_ids, f
 
 
 def visualize_layout_plt(machine_positions_map, factory_w, factory_h, process_sequence_list, machine_definitions_list, title_suffix):
-    """Visualizes the ALDEP layout using the forced GA coordinates."""
+    """Visualizes the ALDEP layout using the aligned GA coordinates."""
     
     fig, ax = plt.subplots(1, figsize=(max(10, factory_w/2), max(10, factory_h/2 + 1))) 
     
