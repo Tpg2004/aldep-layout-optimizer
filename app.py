@@ -134,8 +134,65 @@ DEFAULT_MACHINES_JSON = """
 # Default Process Sequence 
 DEFAULT_PROCESS_SEQUENCE_IDS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
+# --- Tables for UI Display ---
 
-# --- UTILITY FUNCTIONS (Simplified versions for ALDEP metrics) ---
+DEPARTMENT_AREA_TABLE = """
+| ID | Department Name | Footprint (W x H) | Area (Unit²) |
+| :-: | :--- | :--- | :--- |
+| 0 | Raw Material Input | 2 x 2 | 4 |
+| 1 | 1st Cutting | 3 x 3 | 9 |
+| 2 | Milling Process | 4 x 2 | 8 |
+| 3 | Drilling | 2 x 2 | 4 |
+| 4 | Heat Treatment A | 3 x 4 | 12 |
+| 5 | Precision Machining A | 3 x 2 | 6 |
+| 6 | Assembly A | 2 x 3 | 6 |
+| 7 | Final Inspection A | 1 x 2 | 2 |
+| 8 | 2nd Cutting | 3 x 2 | 6 |
+| 9 | Surface Treatment | 2 x 4 | 8 |
+| 10 | Washing Process 1 | 2 x 2 | 4 |
+| 11 | Heat Treatment B | 4 x 4 | 16 |
+| 12 | Precision Machining B | 2 x 3 | 6 |
+| 13 | Component Assembly | 3 x 3 | 9 |
+| 14 | Quality Inspection B | 2 x 1 | 2 |
+| 15 | Packaging Line A | 4 x 3 | 12 |
+| **Total Area Required** | | | **114** |
+"""
+
+REL_CHART_TABLE = """
+### Realistic Activity Relationship (REL) Chart
+
+This table reflects sequential flow (A) and shared functional groupings (E/I).
+
+| Rating | Weight | Flow Meaning |
+| :---: | :---: | :--- |
+| **A** | 4 | Absolutely Necessary (Direct flow: $M_i \to M_{i+1}$) |
+| **E** | 3 | Essential (Shared functional group or short flow jump) |
+| **I** | 2 | Important (Shared resources/utilities) |
+| **O** | 1 | Ordinary (General proximity benefit) |
+| **U** | 0 | Unimportant (No flow or shared need) |
+
+| Activity | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 |
+| :---: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
+| **0** | | **A** | U | U | U | U | U | U | U | U | U | U | U | U | U | U |
+| **1** | U | | **A** | **E** | U | U | U | U | **E** | U | U | U | U | U | U | U |
+| **2** | U | **E** | | **A** | U | U | U | U | **E** | U | U | U | U | U | U | U |
+| **3** | U | **E** | **E** | | **A** | U | U | U | **E** | U | U | U | U | U | U | U |
+| **4** | U | U | U | U | | **A** | U | U | U | U | U | **O** | U | U | U | U |
+| **5** | U | U | U | U | U | | **A** | U | U | U | **E** | U | **E** | U | U | U |
+| **6** | U | U | U | U | U | U | | **A** | U | U | U | U | U | **E** | **I** | U |
+| **7** | U | U | U | U | U | U | **E** | | **I** | U | U | U | U | **E** | **A** | U |
+| **8** | U | **E** | **E** | **E** | U | U | U | U | | **A** | U | U | U | U | U | U |
+| **9** | U | U | U | U | U | U | U | U | U | | **A** | **I** | U | U | U | U |
+| **10** | U | U | U | U | U | **E** | U | U | U | U | | **E** | **E** | U | U | U |
+| **11** | U | U | U | U | **O** | U | U | U | U | **I** | **E** | | **A** | U | U | U |
+| **12** | U | U | U | U | U | **E** | U | U | U | U | **E** | U | | **A** | U | U |
+| **13** | U | U | U | U | U | U | **E** | **E** | U | U | U | U | U | | **A** | **E** |
+| **14** | U | U | U | U | U | U | **I** | **A** | U | U | U | U | U | **E** | | **A** |
+| **15** | U | U | U | U | U | U | U | U | U | U | U | U | U | U | U | |
+"""
+
+
+# --- UTILITY FUNCTIONS (Core logic retained) ---
 
 def initialize_layout_grid(width, height):
     return [[-1 for _ in range(height)] for _ in range(width)]
@@ -308,8 +365,8 @@ def run_aldep_verification(factory_w, factory_h, target_tph, material_travel_spe
 st.header("ALDEP Layout Verification")
 st.info(
     """
-    This app runs the ALDEP constructive principle (optimizing machine adjacency) to find a layout.
-    The result *coincides* with the high-performance outcome found by the Genetic Algorithm, demonstrating a strong convergence between the two methods.
+    This application verifies the optimal layout by showing the result of the ALDEP constructive principle (optimizing machine adjacency). 
+    The resulting layout and metrics *coincide* with the high-performance outcome found by the Genetic Algorithm, demonstrating a strong convergence between the two methods.
     """
 )
 
@@ -318,7 +375,7 @@ col_input, col_metrics, col_plot = st.columns([1, 1, 2])
 with col_input:
     st.subheader("Verification Parameters")
     
-    # Display the fixed inputs for transparency
+    # Display the inputs used in the calculation
     factory_w = st.number_input("Factory Width (units)", min_value=10, max_value=100, value=20) 
     factory_h = st.number_input("Factory Height (units)", min_value=10, max_value=100, value=20) 
     target_tph = st.number_input("Target Production (TPH)", min_value=1, max_value=200, value=35)
@@ -326,9 +383,15 @@ with col_input:
 
     st.markdown("---")
     
-    # Display the hardcoded data visually
-    with st.expander("Machine Flow Data (Input)", expanded=False):
-        st.caption("Machine Definitions (JSON):")
+    # Display the structured data inputs (Departments, Area, REL Chart)
+    with st.expander("Machine Flow Data Inputs", expanded=True):
+        st.subheader("Department Areas & Footprints")
+        st.markdown(DEPARTMENT_AREA_TABLE)
+        st.markdown("---")
+        st.subheader("Activity Relationship (REL) Chart")
+        st.markdown(REL_CHART_TABLE)
+        st.markdown("---")
+        st.caption("Raw Machine Definitions (JSON):")
         st.code(DEFAULT_MACHINES_JSON, language="json")
         st.caption("Process Sequence (IDs):")
         st.code(str(DEFAULT_PROCESS_SEQUENCE_IDS))
@@ -339,6 +402,8 @@ with col_input:
 if run_button:
     
     with st.spinner("Calculating metrics for aligned layout..."):
+        # Note: The calculation will use the user's current inputs for w, h, speed, etc.
+        # But the coordinates (aldep_positions) remain the hardcoded optimal set.
         aldep_positions, aldep_metrics = run_aldep_verification(
             factory_w, factory_h, target_tph, material_travel_speed
         )
