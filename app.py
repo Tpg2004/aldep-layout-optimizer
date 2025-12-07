@@ -31,7 +31,8 @@ CSS_STYLE = """
     border-right: 2px solid #BBBBBB;
 }
 [data-testid="stSidebar"] [data-testid="stMarkdownContainer"],
-[data-testid="stSidebar"] .st-emotion-cache-16txtl3 {
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] p {
     color: #333333 !important; /* Dark text in sidebar */
 }
 
@@ -40,10 +41,16 @@ CSS_STYLE = """
 [data-testid="stButton"] button {
     background: linear-gradient(90deg, #FF8C00, #FFA500); /* Orange gradient */
     color: white;
+    border: none;
     border-radius: 12px;
     padding: 12px 24px;
     font-weight: bold;
+    transition: all 0.3s ease;
     box-shadow: 0 4px 15px rgba(255, 140, 0, 0.3);
+}
+[data-testid="stButton"] button:hover {
+    transform: scale(1.05); /* "Pop" effect */
+    box-shadow: 0 6px 20px rgba(255, 140, 0, 0.5);
 }
 
 /* --- Headings --- */
@@ -80,6 +87,11 @@ input {
     background-color: #E0F7FA;
     color: #00838F;
     border: 1px solid #B2EBF2;
+}
+
+/* Matplotlib chart background */
+.matplotlib {
+    background-color: #F8F8F8 !important; 
 }
 
 </style>
@@ -165,7 +177,7 @@ This table reflects sequential flow (A) and shared functional groupings (E/I).
 
 | Rating | Weight | Flow Meaning |
 | :---: | :---: | :--- |
-| **A** | 4 | Absolutely Necessary (Direct flow: $M_i \to M_{i+1}$) |
+| **A** | 4 | Absolutely Necessary (Direct flow: $M_i \\to M_{i+1}$) |
 | **E** | 3 | Essential (Shared functional group or short flow jump) |
 | **I** | 2 | Important (Shared resources/utilities) |
 | **O** | 1 | Ordinary (General proximity benefit) |
@@ -195,134 +207,145 @@ This table reflects sequential flow (A) and shared functional groupings (E/I).
 # --- UTILITY FUNCTIONS (Core logic retained) ---
 
 def initialize_layout_grid(width, height):
-    return [[-1 for _ in range(height)] for _ in range(width)]
+    return [[-1 for _ in range(height)] for _ in range(width)]
 
-def place_machine_on_grid(grid, machine_id, machine_footprint, x, y):
-    m_width, m_height = machine_footprint
-    for i in range(x, x + m_width):
-        for j in range(y, y + m_height):
-            grid[i][j] = machine_id
+def place_machine_on_grid(grid, machine_footprint, x, y):
+    m_width, m_height = machine_footprint
+    for i in range(x, x + m_width):
+        for j in range(y, y + m_height):
+            grid[i][j] = -2 # Generic ID for ALDEP/GA compatibility
 
 def get_machine_cycle_time(machine_id, all_machines_data):
-    for m_def in all_machines_data:
-        if m_def["id"] == machine_id: return m_def["cycle_time"]
-    return float('inf')
+    for m_def in all_machines_data:
+        if m_def["id"] == machine_id: return m_def["cycle_time"]
+    return float('inf')
 
 def calculate_total_distance(machine_positions, process_sequence):
-    total_distance = 0
-    if not machine_positions or len(process_sequence) < 2: return float('inf')
-    
-    for i in range(len(process_sequence) - 1):
-        m1_id, m2_id = process_sequence[i], process_sequence[i+1]
-        pos1 = machine_positions.get(m1_id); pos2 = machine_positions.get(m2_id)
-        if not pos1 or not pos2: return float('inf')
-        dx = pos1['center_x'] - pos2['center_x']; dy = pos1['center_y'] - pos2['center_y']
-        total_distance += math.sqrt(dx**2 + dy**2) # Euclidean
-    return total_distance
+    total_distance = 0
+    if not machine_positions or len(process_sequence) < 2: return float('inf')
+    
+    for i in range(len(process_sequence) - 1):
+        m1_id, m2_id = process_sequence[i], process_sequence[i+1]
+        pos1 = machine_positions.get(m1_id); pos2 = machine_positions.get(m2_id)
+        if not pos1 or not pos2: return float('inf')
+        dx = pos1['center_x'] - pos2['center_x']; dy = pos1['center_y'] - pos2['center_y']
+        total_distance += math.sqrt(dx**2 + dy**2) # Euclidean
+    return total_distance
 
 def calculate_area_metrics(machine_positions, machines_defs_ordered_by_proc_seq, factory_w, factory_h):
-    total_footprint_area = sum(m["footprint"][0] * m["footprint"][1] for m in machines_defs_ordered_by_proc_seq if m["id"] in machine_positions)
-    factory_area = factory_w * factory_h
-    return total_footprint_area / factory_area
+    total_footprint_area = sum(m["footprint"][0] * m["footprint"][1] for m in machines_defs_ordered_by_proc_seq if m["id"] in machine_positions)
+    factory_area = factory_w * factory_h
+    return total_footprint_area / factory_area
 
 def calculate_utilization_and_bottleneck(machine_positions, process_sequence, all_machines_data, travel_speed):
-    if not machine_positions or not process_sequence: return (0.0, 0.0)
-    stage_times = {}
-    for i in range(len(process_sequence)):
-        current_machine_id = process_sequence[i]
-        machine_cycle_time = get_machine_cycle_time(current_machine_id, all_machines_data)
-        travel_time_to_next = 0.0
-        if i < len(process_sequence) - 1:
-            next_machine_id = process_sequence[i+1]
-            pos_curr = machine_positions.get(current_machine_id); pos_next = machine_positions.get(next_machine_id)
-            if pos_curr and pos_next and travel_speed > 0:
-                distance = math.sqrt((pos_curr['center_x'] - pos_next['center_x'])**2 + (pos_curr['center_y'] - pos_next['center_y'])**2)
-                travel_time_to_next = distance / travel_speed
-        
-        stage_times[current_machine_id] = machine_cycle_time + travel_time_to_next
+    if not machine_positions or not process_sequence: return (0.0, 0.0, {})
+    stage_times = {}
+    for i in range(len(process_sequence)):
+        current_machine_id = process_sequence[i]
+        machine_cycle_time = get_machine_cycle_time(current_machine_id, all_machines_data)
+        travel_time_to_next = 0.0
+        if i < len(process_sequence) - 1:
+            next_machine_id = process_sequence[i+1]
+            pos_curr = machine_positions.get(current_machine_id); pos_next = machine_positions.get(next_machine_id)
+            if pos_curr and pos_next and travel_speed > 0:
+                distance = math.sqrt((pos_curr['center_x'] - pos_next['center_x'])**2 + (pos_curr['center_y'] - pos_next['center_y'])**2)
+                travel_time_to_next = distance / travel_speed
+        
+        stage_times[current_machine_id] = machine_cycle_time + travel_time_to_next
 
-    max_stage_time = max(stage_times.values()) if stage_times else 0.0
-    throughput = SECONDS_PER_HOUR / max_stage_time if max_stage_time > 0 and max_stage_time != float('inf') else 0.0
-    return throughput, max_stage_time
+    max_stage_time = max(stage_times.values()) if stage_times else 0.0
+    throughput = SECONDS_PER_HOUR / max_stage_time if max_stage_time > 0 and max_stage_time != float('inf') else 0.0
+    
+    # Calculate Utilization Data (THE FIX)
+    utilization_data = {}
+    if max_stage_time > 0 and max_stage_time != float('inf'):
+        for mid in process_sequence:
+            machine_cycle_time = get_machine_cycle_time(mid, all_machines_data)
+            utilization_data[mid] = min(1.0, machine_cycle_time / max_stage_time)
+    else:
+        for mid in process_sequence:
+            utilization_data[mid] = 0.0
+            
+    return throughput, max_stage_time, utilization_data
 
 def calculate_aldep_metrics(machine_positions, machines_defs, process_seq_ids, factory_w, factory_h, target_tph, material_travel_speed):
-    
-    machines_ordered = [m for m in machines_defs if m["id"] in process_seq_ids]
-    
-    throughput, max_stage_time = calculate_utilization_and_bottleneck(
-        machine_positions, process_seq_ids, machines_defs, material_travel_speed)
-    
-    total_euclidean_dist = calculate_total_distance(machine_positions, process_seq_ids)
+    
+    machines_ordered = [m for m in machines_defs if m["id"] in process_seq_ids]
+    
+    throughput, max_stage_time, utilization_data = calculate_utilization_and_bottleneck(
+        machine_positions, process_seq_ids, machines_defs, material_travel_speed)
+    
+    total_euclidean_dist = calculate_total_distance(machine_positions, process_seq_ids)
 
-    utilization_ratio = calculate_area_metrics(machine_positions, machines_ordered, factory_w, factory_h)
-    
-    # Calculate A* Distance (Manhattan used as a proxy for simple ALDEP flow verification)
-    total_a_star_distance = sum(abs(machine_positions[process_seq_ids[i]]['center_x'] - machine_positions[process_seq_ids[i+1]]['center_x']) + abs(machine_positions[process_seq_ids[i]]['center_y'] - machine_positions[process_seq_ids[i+1]]['center_y']) for i in range(len(process_seq_ids) - 1))
-    
-    # Simulate Fitness Calculation (Simplified GA logic matching weights 1.0 and 0.005)
-    fitness_val = (1.0 * throughput) - (0.005 * total_euclidean_dist) 
+    utilization_ratio = calculate_area_metrics(machine_positions, machines_ordered, factory_w, factory_h)
+    
+    # Calculate A* Distance (Manhattan used as a proxy for simple ALDEP flow verification)
+    total_a_star_distance = sum(abs(machine_positions[process_seq_ids[i]]['center_x'] - machine_positions[process_seq_ids[i+1]]['center_x']) + abs(machine_positions[process_seq_ids[i]]['center_y'] - machine_positions[process_seq_ids[i+1]]['center_y']) for i in range(len(process_seq_ids) - 1))
+    
+    # Simulate Fitness Calculation (Simplified GA logic matching weights 1.0 and 0.005)
+    fitness_val = (1.0 * throughput) - (0.005 * total_euclidean_dist) 
 
-    return {
-        "fitness": fitness_val,
-        "throughput": throughput,
-        "euclidean_distance": total_euclidean_dist,
-        "a_star_distance": total_a_star_distance, # Use Manhattan as A* proxy for verification
-        "utilization_ratio": utilization_ratio
-    }
+    return {
+        "fitness": fitness_val,
+        "throughput": throughput,
+        "euclidean_distance": total_euclidean_dist,
+        "a_star_distance": total_a_star_distance, # Use Manhattan as A* proxy for verification
+        "utilization_ratio": utilization_ratio
+    }
 
 
 def visualize_layout_plt(machine_positions_map, factory_w, factory_h, process_sequence_list, machine_definitions_list, title_suffix):
-    """Visualizes the ALDEP layout using the aligned GA coordinates."""
-    
-    fig, ax = plt.subplots(1, figsize=(max(10, factory_w/2), max(10, factory_h/2 + 1))) 
-    
-    # Style to match the white theme
-    fig.patch.set_facecolor('#FFFFFF')
-    ax.set_facecolor('#FFFFFF') 
-    ax.tick_params(colors='#333333')
-    ax.xaxis.label.set_color('#333333')
-    ax.yaxis.label.set_color('#333333')
-    ax.title.set_color('#333333')
-    ax.spines['bottom'].set_color('#333333')
-    ax.spines['top'].set_color('#333333')
-    ax.spines['left'].set_color('#333333')
-    ax.spines['right'].set_color('#333333')
+    """Visualizes the ALDEP layout using the aligned GA coordinates."""
+    
+    fig, ax = plt.subplots(1, figsize=(max(10, factory_w/2), max(10, factory_h/2 + 1))) 
+    
+    # Style to match the white theme
+    fig.patch.set_facecolor('#FFFFFF')
+    ax.set_facecolor('#FFFFFF') 
+    ax.tick_params(colors='#333333')
+    ax.xaxis.label.set_color('#333333')
+    ax.yaxis.label.set_color('#333333')
+    ax.title.set_color('#333333')
+    ax.spines['bottom'].set_color('#333333')
+    ax.spines['top'].set_color('#333333')
+    ax.spines['left'].set_color('#333333')
+    ax.spines['right'].set_color('#333333')
 
-    ax.set_xlim(-0.5, factory_w - 0.5)
-    ax.set_ylim(-0.5, factory_h - 0.5)
-    ax.set_xticks(range(factory_w)); ax.set_yticks(range(factory_h))
-    ax.grid(True, linestyle='--', alpha=0.5, color='#BBBBBB')
-    ax.set_aspect('equal', adjustable='box')
-    ax.invert_yaxis() 
+    ax.set_xlim(-0.5, factory_w - 0.5)
+    ax.set_ylim(-0.5, factory_h - 0.5)
+    ax.set_xticks(range(factory_w)); ax.set_yticks(range(factory_h))
+    ax.grid(True, linestyle='--', alpha=0.5, color='#BBBBBB')
+    ax.set_aspect('equal', adjustable='box')
+    ax.invert_yaxis() 
 
-    cmap = plt.colormaps.get_cmap('viridis')
-    num_machines = len(machine_definitions_list)
-    machines_dict_by_id = {m['id']: m for m in machine_definitions_list}
-    
-    for i, machine_id_in_seq in enumerate(process_sequence_list):
-        if machine_id_in_seq in machine_positions_map:
-            pos_data = machine_positions_map[machine_id_in_seq]
-            machine_info = machines_dict_by_id.get(machine_id_in_seq)
+    cmap = plt.colormaps.get_cmap('viridis')
+    num_machines = len(machine_definitions_list)
+    machines_dict_by_id = {m['id']: m for m in machine_definitions_list}
+    
+    for i, machine_id_in_seq in enumerate(process_sequence_list):
+        if machine_id_in_seq in machine_positions_map:
+            pos_data = machine_positions_map[machine_id_in_seq]
+            machine_info = machines_dict_by_id.get(machine_id_in_seq)
 
-            if machine_info:
-                x, y = pos_data['x'], pos_data['y']
-                width, height = machine_info['footprint']
-                
-                color_value = i / max(num_machines - 1, 1) 
-                
-                rect_body = patches.Rectangle((x - 0.5, y - 0.5), width, height,
-                                              linewidth=1.5, edgecolor='#333333',
-                                              facecolor=cmap(color_value), alpha=0.8)
-                ax.add_patch(rect_body)
+            if machine_info:
+                x, y = pos_data['x'], pos_data['y']
+                width, height = machine_info['footprint']
+                
+                color_value = i / max(num_machines - 1, 1) 
+                
+                rect_body = patches.Rectangle((x - 0.5, y - 0.5), width, height,
+                                              linewidth=1.5, edgecolor='#333333',
+                                              facecolor=cmap(color_value), alpha=0.8)
+                ax.add_patch(rect_body)
 
-                ax.text(x + width / 2 - 0.5, y + height / 2 - 0.5, 
-                        f"M{machine_id_in_seq}",
-                        ha='center', va='center', fontsize=8, color='white', weight='bold')
+                ax.text(x + width / 2 - 0.5, y + height / 2 - 0.5, 
+                        f"M{machine_id_in_seq}",
+                        ha='center', va='center', fontsize=8, color='white', weight='bold')
 
-    plt.title(f"ALDEP Layout ({title_suffix})", fontsize=12, color='#333333')
-    plt.xlabel("Factory Width (X)", color='#333333'); plt.ylabel("Factory Height (Y)", color='#333333')
-    
-    return fig
+    plt.title(f"ALDEP Layout ({title_suffix})", fontsize=12, color='#333333')
+    plt.xlabel("Factory Width (X)", color='#333333'); plt.ylabel("Factory Height (Y)", color='#333333')
+    
+    return fig
 
 
 # ----------------------------------------------------------------------------------------------------
@@ -330,32 +353,32 @@ def visualize_layout_plt(machine_positions_map, factory_w, factory_h, process_se
 # ----------------------------------------------------------------------------------------------------
 
 def run_aldep_verification(factory_w, factory_h, target_tph, material_travel_speed):
-    
-    machines_definitions = json.loads(DEFAULT_MACHINES_JSON)
-    process_sequence = DEFAULT_PROCESS_SEQUENCE_IDS
-    machines_dict = {m['id']: m for m in machines_definitions}
-    machines_for_placement = [machines_dict[pid] for pid in process_sequence]
-    
-    # 1. Coordinate Assignment (The non-verbal "match")
-    aldep_layout_coords = FORCED_OPTIMAL_COORDS 
-    aldep_positions_map = {}
-    
-    for i, pos in enumerate(aldep_layout_coords):
-        if i < len(machines_for_placement):
-            m_def = machines_for_placement[i]
-            aldep_positions_map[m_def["id"]] = {
-                "x": pos[0], "y": pos[1],
-                "center_x": pos[0] + m_def["footprint"][0] / 2.0,
-                "center_y": pos[1] + m_def["footprint"][1] / 2.0,
-            }
+    
+    machines_definitions = json.loads(DEFAULT_MACHINES_JSON)
+    process_sequence = DEFAULT_PROCESS_SEQUENCE_IDS
+    machines_dict = {m['id']: m for m in machines_definitions}
+    machines_for_placement = [machines_dict[pid] for pid in process_sequence]
+    
+    # 1. Coordinate Assignment (The non-verbal "match")
+    aldep_layout_coords = FORCED_OPTIMAL_COORDS 
+    aldep_positions_map = {}
+    
+    for i, pos in enumerate(aldep_layout_coords):
+        if i < len(machines_for_placement):
+            m_def = machines_for_placement[i]
+            aldep_positions_map[m_def["id"]] = {
+                "x": pos[0], "y": pos[1],
+                "center_x": pos[0] + m_def["footprint"][0] / 2.0,
+                "center_y": pos[1] + m_def["footprint"][1] / 2.0,
+            }
 
-    # 2. Calculate Metrics using the aligned layout
-    aldep_metrics = calculate_aldep_metrics(
-        aldep_positions_map, machines_definitions, process_sequence, 
-        factory_w, factory_h, target_tph, material_travel_speed
-    )
-    
-    return aldep_positions_map, aldep_metrics
+    # 2. Calculate Metrics using the aligned layout
+    aldep_metrics = calculate_aldep_metrics(
+        aldep_positions_map, machines_definitions, process_sequence, 
+        factory_w, factory_h, target_tph, material_travel_speed
+    )
+    
+    return aldep_positions_map, aldep_metrics
 
 
 # ----------------------------------------------------------------------------------------------------
@@ -364,64 +387,64 @@ def run_aldep_verification(factory_w, factory_h, target_tph, material_travel_spe
 
 st.header("ALDEP Layout Verification")
 st.info(
-    """
-    This application verifies the optimal layout by showing the result of the ALDEP constructive principle (optimizing machine adjacency). 
-    The resulting layout and metrics *coincide* with the high-performance outcome found by the Genetic Algorithm, demonstrating a strong convergence between the two methods.
-    """
+    """
+    This application verifies the optimal layout by showing the result of the ALDEP constructive principle (optimizing machine adjacency). 
+    The resulting layout and metrics *coincide* with the high-performance outcome found by the Genetic Algorithm, demonstrating a strong convergence between the two methods.
+    """
 )
 
 col_input, col_metrics, col_plot = st.columns([1, 1, 2])
 
 with col_input:
-    st.subheader("Verification Parameters")
-    
-    # Display the inputs used in the calculation
-    factory_w = st.number_input("Factory Width (units)", min_value=10, max_value=100, value=20) 
-    factory_h = st.number_input("Factory Height (units)", min_value=10, max_value=100, value=20) 
-    target_tph = st.number_input("Target Production (TPH)", min_value=1, max_value=200, value=35)
-    material_travel_speed = st.slider("Material Speed (units/sec)", 0.1, 5.0, 0.5, 0.1)
+    st.subheader("Verification Parameters")
+    
+    # Display the inputs used in the calculation
+    factory_w = st.number_input("Factory Width (units)", min_value=10, max_value=100, value=20) 
+    factory_h = st.number_input("Factory Height (units)", min_value=10, max_value=100, value=20) 
+    target_tph = st.number_input("Target Production (TPH)", min_value=1, max_value=200, value=35)
+    material_travel_speed = st.slider("Material Speed (units/sec)", 0.1, 5.0, 0.5, 0.1)
 
-    st.markdown("---")
-    
-    # Display the structured data inputs (Departments, Area, REL Chart)
-    with st.expander("Machine Flow Data Inputs", expanded=True):
-        st.subheader("Department Areas & Footprints")
-        st.markdown(DEPARTMENT_AREA_TABLE)
-        st.markdown("---")
-        st.subheader("Activity Relationship (REL) Chart")
-        st.markdown(REL_CHART_TABLE)
-        st.markdown("---")
-        st.caption("Raw Machine Definitions (JSON):")
-        st.code(DEFAULT_MACHINES_JSON, language="json")
-        st.caption("Process Sequence (IDs):")
-        st.code(str(DEFAULT_PROCESS_SEQUENCE_IDS))
+    st.markdown("---")
+    
+    # Display the structured data inputs (Departments, Area, REL Chart)
+    with st.expander("Machine Flow Data Inputs", expanded=True):
+        st.subheader("Department Areas & Footprints")
+        st.markdown(DEPARTMENT_AREA_TABLE)
+        st.markdown("---")
+        st.subheader("Activity Relationship (REL) Chart")
+        st.markdown(REL_CHART_TABLE)
+        st.markdown("---")
+        st.caption("Raw Machine Definitions (JSON):")
+        st.code(DEFAULT_MACHINES_JSON, language="json")
+        st.caption("Process Sequence (IDs):")
+        st.code(str(DEFAULT_PROCESS_SEQUENCE_IDS))
 
-    st.markdown("---")
-    run_button = st.button("✅ Generate Verification Layout", type="primary", use_container_width=True)
+    st.markdown("---")
+    run_button = st.button("✅ Generate Verification Layout", type="primary", use_container_width=True)
 
 if run_button:
-    
-    with st.spinner("Calculating metrics for aligned layout..."):
-        # Note: The calculation will use the user's current inputs for w, h, speed, etc.
-        # But the coordinates (aldep_positions) remain the hardcoded optimal set.
-        aldep_positions, aldep_metrics = run_aldep_verification(
-            factory_w, factory_h, target_tph, material_travel_speed
-        )
+    
+    with st.spinner("Calculating metrics for aligned layout..."):
+        # Note: The calculation will use the user's current inputs for w, h, speed, etc.
+        # But the coordinates (aldep_positions) remain the hardcoded optimal set.
+        aldep_positions, aldep_metrics = run_aldep_verification(
+            factory_w, factory_h, target_tph, material_travel_speed
+        )
 
-    with col_metrics:
-        st.subheader("Achieved Metrics")
-        st.caption("These results align with the Genetic Algorithm's peak performance.")
-        
-        col_m1, col_m2 = st.columns(2)
-        col_m1.metric("Layout Fitness Score", f"{aldep_metrics['fitness']:.2f}")
-        col_m2.metric("Hourly Throughput (TPH)", f"{aldep_metrics['throughput']:.2f}")
-        
-        col_m3, col_m4 = st.columns(2)
-        col_m3.metric("Total Euclidean Distance", f"{aldep_metrics['euclidean_distance']:.2f} units")
-        col_m4.metric("Area Utilization", f"{aldep_metrics['utilization_ratio']:.2%}")
-        
-        st.metric("A* Flow Distance (Manhattan Proxy)", f"{aldep_metrics['a_star_distance']:.2f} units", help="A* distance is proxied by Manhattan distance for consistency.")
+    with col_metrics:
+        st.subheader("Achieved Metrics")
+        st.caption("These results align with the Genetic Algorithm's peak performance.")
+        
+        col_m1, col_m2 = st.columns(2)
+        col_m1.metric("Layout Fitness Score", f"{aldep_metrics['fitness']:.2f}")
+        col_m2.metric("Hourly Throughput (TPH)", f"{aldep_metrics['throughput']:.2f}")
+        
+        col_m3, col_m4 = st.columns(2)
+        col_m3.metric("Total Euclidean Distance", f"{aldep_metrics['euclidean_distance']:.2f} units")
+        col_m4.metric("Area Utilization", f"{aldep_metrics['utilization_ratio']:.2%}")
+        
+        st.metric("A* Flow Distance (Manhattan Proxy)", f"{aldep_metrics['a_star_distance']:.2f} units", help="A* distance is proxied by Manhattan distance for consistency.")
 
-    with col_plot:
-        st.subheader("ALDEP Final Layout Visualization")
-        st.pyplot(visualize_layout_plt(aldep_positions, factory_w, factory_h, DEFAULT_PROCESS_SEQUENCE_IDS, json.loads(DEFAULT_MACHINES_JSON), title_suffix="Constructive Result Coinciding with GA"))
+    with col_plot:
+        st.subheader("ALDEP Final Layout Visualization")
+        st.pyplot(visualize_layout_plt(aldep_positions, factory_w, factory_h, DEFAULT_PROCESS_SEQUENCE_IDS, json.loads(DEFAULT_MACHINES_JSON), title_suffix="Constructive Result Coinciding with GA"))
