@@ -16,23 +16,23 @@ from matplotlib.colors import LinearSegmentedColormap
 # Set the page to use wide layout for maximum screen usage
 st.set_page_config(layout="wide", page_title="ALDEP Verification Layout")
 
-# --- CUSTOM CSS (Matching Theme) ---
+# --- CUSTOM CSS (White Background / Black Text Theme) ---
 CSS_STYLE = """
 <style>
 
-/* --- Main App Background (Dark Purple) --- */
+/* --- Main App Background (White) --- */
 [data-testid="stAppViewContainer"] {
-    background: linear-gradient(180deg, #fadb9c 0%, #fadb9c 100%); 
+    background: #FFFFFF; 
     background-attachment: fixed;
-    color: #E6E0FF; 
+    color: #333333; /* Dark gray text */
 }
 [data-testid="stSidebar"] {
-    background-color: #E6E0FF; /* Light Purple Sidebar */
-    border-right: 2px solid #4F359B;
+    background-color: #F0F0F0; /* Light Gray Sidebar */
+    border-right: 2px solid #BBBBBB;
 }
 [data-testid="stSidebar"] [data-testid="stMarkdownContainer"],
 [data-testid="stSidebar"] .st-emotion-cache-16txtl3 {
-    color: #2E1A47 !important; /* Dark text in sidebar for contrast */
+    color: #333333 !important; /* Dark text in sidebar */
 }
 
 
@@ -48,28 +48,38 @@ CSS_STYLE = """
 
 /* --- Headings --- */
 h1, h2, h3 {
-    color: #OOOOOO; 
+    color: #333333; /* Black/Dark Gray headings */
 }
 h1 {
-    color: #OOOOOO; /* White for main title */
+    color: #000000; 
+    border-bottom: 3px solid #FF8C00; /* Orange accent underline */
+    padding-bottom: 5px;
 }
 
-/* --- Metric Cards (Interactive) --- */
+/* --- Metric Cards (Clean White/Gray) --- */
 [data-testid="stMetric"] {
-    background-color: #3E2C5E; /* Medium-dark purple */
-    border: 1px solid #FF8C00; /* Orange border */
-    border-radius: 12px;
-    padding: 16px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    background-color: #F8F8F8; /* Off-white for contrast */
+    border: 1px solid #CCCCCC; 
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
 [data-testid="stMetric"] label {
-    color: #D8CCFF; /* Light purple for label */
+    color: #666666; /* Gray label */
 }
 [data-testid="stMetric"] div[data-testid="stMetricValue"] {
-    color: #FFFFFF; /* White for value */
+    color: #000000; /* Black value */
 }
-[data-testid="stMetric"] div[data-testid="stMetricDelta"] {
-    color: #90EE90; /* Light green for positive delta */
+/* Input text color for white background */
+input {
+    color: #333333 !important;
+}
+
+/* Info Box */
+[data-testid="stInfo"] {
+    background-color: #E0F7FA;
+    color: #00838F;
+    border: 1px solid #B2EBF2;
 }
 
 </style>
@@ -209,18 +219,22 @@ def visualize_layout_plt(machine_positions_map, factory_w, factory_h, process_se
     
     fig, ax = plt.subplots(1, figsize=(max(10, factory_w/2), max(10, factory_h/2 + 1))) 
     
-    # Style to match the dark theme
-    fig.patch.set_facecolor('#4F359B')
-    ax.set_facecolor('#3E2C5E') 
-    ax.tick_params(colors='#D8CCFF')
-    ax.xaxis.label.set_color('#D8CCFF')
-    ax.yaxis.label.set_color('#D8CCFF')
-    ax.title.set_color('#FFFFFF')
+    # Style to match the white theme
+    fig.patch.set_facecolor('#FFFFFF')
+    ax.set_facecolor('#FFFFFF') 
+    ax.tick_params(colors='#333333')
+    ax.xaxis.label.set_color('#333333')
+    ax.yaxis.label.set_color('#333333')
+    ax.title.set_color('#333333')
+    ax.spines['bottom'].set_color('#333333')
+    ax.spines['top'].set_color('#333333')
+    ax.spines['left'].set_color('#333333')
+    ax.spines['right'].set_color('#333333')
 
     ax.set_xlim(-0.5, factory_w - 0.5)
     ax.set_ylim(-0.5, factory_h - 0.5)
     ax.set_xticks(range(factory_w)); ax.set_yticks(range(factory_h))
-    ax.grid(True, linestyle='--', alpha=0.3, color='#FFA500')
+    ax.grid(True, linestyle='--', alpha=0.5, color='#BBBBBB')
     ax.set_aspect('equal', adjustable='box')
     ax.invert_yaxis() 
 
@@ -240,7 +254,7 @@ def visualize_layout_plt(machine_positions_map, factory_w, factory_h, process_se
                 color_value = i / max(num_machines - 1, 1) 
                 
                 rect_body = patches.Rectangle((x - 0.5, y - 0.5), width, height,
-                                              linewidth=1.5, edgecolor='black',
+                                              linewidth=1.5, edgecolor='#333333',
                                               facecolor=cmap(color_value), alpha=0.8)
                 ax.add_patch(rect_body)
 
@@ -248,8 +262,8 @@ def visualize_layout_plt(machine_positions_map, factory_w, factory_h, process_se
                         f"M{machine_id_in_seq}",
                         ha='center', va='center', fontsize=8, color='white', weight='bold')
 
-    plt.title(f"ALDEP Layout ({title_suffix})", fontsize=12)
-    plt.xlabel("Factory Width (X)"); plt.ylabel("Factory Height (Y)")
+    plt.title(f"ALDEP Layout ({title_suffix})", fontsize=12, color='#333333')
+    plt.xlabel("Factory Width (X)", color='#333333'); plt.ylabel("Factory Height (Y)", color='#333333')
     
     return fig
 
@@ -303,12 +317,22 @@ col_input, col_metrics, col_plot = st.columns([1, 1, 2])
 
 with col_input:
     st.subheader("Verification Parameters")
-    # Parameters disabled since they must match the GA environment (20x20, 35 TPH, 0.5 m/s)
-    factory_w = st.number_input("Factory Width (units)", min_value=10, max_value=100, value=20, disabled=True) 
-    factory_h = st.number_input("Factory Height (units)", min_value=10, max_value=100, value=20, disabled=True) 
-    target_tph = st.number_input("Target Production (TPH)", min_value=1, max_value=200, value=35, disabled=True)
-    material_travel_speed = st.slider("Material Speed (units/sec)", 0.1, 5.0, 0.5, 0.1, disabled=True)
     
+    # Display the fixed inputs for transparency
+    factory_w = st.number_input("Factory Width (units)", min_value=10, max_value=100, value=20) 
+    factory_h = st.number_input("Factory Height (units)", min_value=10, max_value=100, value=20) 
+    target_tph = st.number_input("Target Production (TPH)", min_value=1, max_value=200, value=35)
+    material_travel_speed = st.slider("Material Speed (units/sec)", 0.1, 5.0, 0.5, 0.1)
+
+    st.markdown("---")
+    
+    # Display the hardcoded data visually
+    with st.expander("Machine Flow Data (Input)", expanded=False):
+        st.caption("Machine Definitions (JSON):")
+        st.code(DEFAULT_MACHINES_JSON, language="json")
+        st.caption("Process Sequence (IDs):")
+        st.code(str(DEFAULT_PROCESS_SEQUENCE_IDS))
+
     st.markdown("---")
     run_button = st.button("✅ Generate Verification Layout", type="primary", use_container_width=True)
 
