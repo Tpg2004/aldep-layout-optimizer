@@ -48,10 +48,10 @@ CSS_STYLE = """
 
 /* --- Headings --- */
 h1, h2, h3 {
-    color: #D8CCFF; 
+    color: #OOOOOO; 
 }
 h1 {
-    color: #FFFFFF; /* White for main title */
+    color: #OOOOOO; /* White for main title */
 }
 
 /* --- Metric Cards (Interactive) --- */
